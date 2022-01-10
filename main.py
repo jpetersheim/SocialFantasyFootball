@@ -108,6 +108,7 @@ async def remove(ctx, member : discord.Member, type):
     return
     
   userid = str(member.id)
+  print(userid)
   
   if any(userid in k for k in db.keys()):
     if type == 'user':
@@ -119,9 +120,11 @@ async def remove(ctx, member : discord.Member, type):
       
       if len(leagues_info) > 1:
         league_names = []
+        league_keys = []
         
         for x in leagues_info:
-          [league_names.append(x['league_name'])]
+          [league_names.append(leagues_info[x]['league_name'])]
+          [league_keys.append(x)]
           
         league_list = []
         
@@ -145,10 +148,14 @@ async def remove(ctx, member : discord.Member, type):
           msg_answer = int(msg.content)
           
       else:
+        league_keys = []
+        for x in leagues_info:
+          [league_keys.append(x)]
         msg_answer = 1
+        
+      del_league_name = db[userid]['leagues'][league_keys[msg_answer-1]]['league_name']
 
-      del_league_name = db[userid]['leagues'][msg_answer-1]['league_name']
-      del db[userid]['leagues'][msg_answer-1]
+      del db[userid]['leagues'][league_keys[msg_answer-1]]
       await ctx.send("Removed the league {0} from user {1}.".format(del_league_name,member.mention))
       
   else:
