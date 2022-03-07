@@ -10,7 +10,7 @@ from discord.ext.commands import has_permissions, CheckFailure, check
 from replit import db
 
 client = discord.Client()
-client = commands.Bot(command_prefix = '!sff-')
+client = commands.Bot(command_prefix = 'sff ')
 
 ff_apps = ["sleeper"]
 
@@ -34,6 +34,10 @@ def setup_user(member : discord.Member, app, user_id, league_id, league_name):
 
 def remove_user(member: discord.Member):
  print("remove")   
+
+def check_perm(ctx, member):
+  check_p = not (ctx.author != member and ctx.author.guild_permissions.administrator == False)
+  return check_p
   
 @client.event
 async def on_ready():
@@ -52,16 +56,29 @@ async def ping(ctx):
   brief="Add account information for the user sending the message"
 )
 async def setup(ctx, member: discord.Member, app, userid):
-  if app in ff_apps:
+
+  if not check_perm(ctx, member):
+    await ctx.send("Sorry! Only administrators for the Discord server have permission to change other members' data.")
+    return
+  
+  if app.lower() in ff_apps:
     if app == "sleeper":
       tmp_value = slp.get_id(userid)
     else:
       tmp_value = userid
 
     nfl_state = slp.get_nfl_state()
-    curr_year = nfl_state['season']
+    if nfl_state['season_type'] == 'off':
+      curr_year = nfl_state['previous_season']
+    else:
+      curr_year = nfl_state['season']
     
     user_lg_info = slp.get_userleagues(tmp_value,curr_year)
+
+    if len(user_lg_info[0])<1:
+      await ctx.send("The user `{0}` has no fantasy football leagues set up with `{1}` for `{2}`. Please double-check the username and app.".format(userid, app, curr_year))
+      await ctx.send("For new leagues you must wait until pre-season to add the league to SFF.")
+      return
 
     if len(user_lg_info[0]) > 1:
       league_list = []
@@ -92,7 +109,7 @@ async def setup(ctx, member: discord.Member, app, userid):
     
     setup_user(member, app, tmp_value, league_id, league_name)
     
-    await ctx.send("{0} added information for {1} fantasy football app: {2} {3} {4}".format(ctx.author.mention, app, member.mention, userid, league_name))
+    await ctx.send("{0} added information for `{1}` fantasy football app: \nMember:{2}\nUsername: {3}\nLeague Name: {4}".format(ctx.author.mention, app, member.mention, userid, league_name))
   else:
     await ctx.send("SFF does not support {0} fantasy football leagues, please try again with one of our supported leagues. See sff-help setup for a list.".format(app))
   return
@@ -101,10 +118,14 @@ async def setup(ctx, member: discord.Member, app, userid):
   help="Use this command to remove a user or league from the database. Specify the type of remove with `user` or `league`",
   brief="Remove a user or league from the database."
 )
-async def remove(ctx, member : discord.Member, type):
+async def remove(ctx, member : discord.Member, type=''):
+  if not check_perm(ctx, member):
+    await ctx.send("Sorry! Only administrators for the Discord server have permission to change other members' data.")
+    return
+  
   types = ['user','league']
   if not any(type in t for t in types):
-    await ctx.send('Please retry and enter an appropriate type to remove, such as `user` or `league`.')
+    await ctx.send('Please retry and enter an appropriate data point to remove, such as `user` or `league`.')
     return
     
   userid = str(member.id)
@@ -172,6 +193,17 @@ async def checkuser(ctx, member : discord.Member):
   else:
     tmp_str = db[str(member.id)]
     await ctx.send(tmp_str)
+  return
+
+@client.command(
+  help="Use this to return the entire database (testing purposes)",
+  brief="Shows current db for testing purposes."
+)
+async def dbme(ctx):
+  for key, value in db.items():
+    data1 = str(key) + ' : ' + str(value) + '\n'
+  await ctx.send(data1)
+  print(data1)
   return
 
 client.run(os.environ["TOKEN"]) #get your bot token and create a key named `TOKEN` to the secrets panel then paste your bot token as the value. 
